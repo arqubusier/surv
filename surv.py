@@ -93,8 +93,9 @@ class Ball(object):
     def handle_collision(paddle_1, paddle_2, room):
         pass
 
-    def draw(self, renderer):
-        pass
+    def draw(self, renderer, room):
+        #Draw proper disc!!!
+        Rectangle(self, self.x, self.y, self.z, LENGTH_X, LENGTH_Y, LENGTH_Z).draw(renderer, room)
 
 class Room(object):
     LENGTH_X = 800
@@ -108,7 +109,6 @@ class Room(object):
                 for z in range(0, Room.LENGTH_Z + rects_spacing , rects_spacing)]
 
     def draw(self, renderer):
-        #Rectangle(0, 0, 0, Room.LENGTH_X, Room.LENGTH_Y, WHITE).draw(renderer, self)
         for rect in self.rects:
             rect.draw(renderer, self)
 
