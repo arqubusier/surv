@@ -45,16 +45,25 @@ class Rectangle(object):
         self.color = color
     
     def draw(self, renderer, room):
-        """Draws the rect, scaling and adjusting for the z-coordinate"""
-        center_x = (room.dim.x - self.dim.x) / 2
-        center_y = (room.dim.y - self.dim.y) / 2
-        x = center_x  + (self.pos.x - center_x) * SCALE_X * self.pos.z
-        y = center_y  + (self.pos.y - center_y) * SCALE_Y * self.pos.z
-        dim_x = self.dim.x*SCALE_X*self.pos.z
-        dim_y = self.dim.y*SCALE_Y*self.pos.z
+        """Draws the rect, scaling the width and height and offsetting the x and y coordinates according to the
+        the z-coordinate. These operations are both linear functions of z"""
+        #The ratio of the opposing wall to the front facing wall
+        ratio = 0.25
+        gradient_x = (ratio - 1)*self.dim.x/room.dim.z
+        gradient_y = (ratio - 1)*self.dim.y/room.dim.z
 
-        #replace with draw_rect
-        renderer.draw_rect((x, y, dim_x, dim_y), self.color)
+        dim_x = gradient_x*self.pos.z + self.dim.x
+        dim_y = gradient_y*self.pos.z + self.dim.y
+
+        gradient_x = (1 - ratio) * room.dim.x / 2 / room.dim.z
+        gradient_y = (1 - ratio) * room.dim.y / 2 / room.dim.z
+        offset_x = gradient_x*self.pos.z
+        offset_y = gradient_y*self.pos.z
+
+        x = self.pos.x + offset_x
+        y = self.pos.y + offset_y
+
+        renderer.draw_rect((round(x), round(y), round(dim_x), round(dim_y)), self.color)
 
 class Paddle(object):
     LENGTH_X = 80
@@ -99,6 +108,7 @@ class Room(object):
                 for z in range(0, Room.LENGTH_Z + rects_spacing , rects_spacing)]
 
     def draw(self, renderer):
+        #Rectangle(0, 0, 0, Room.LENGTH_X, Room.LENGTH_Y, WHITE).draw(renderer, self)
         for rect in self.rects:
             rect.draw(renderer, self)
 
