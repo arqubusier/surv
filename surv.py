@@ -134,50 +134,100 @@ class Paddle(object):
 
 class Ball(object):
     dim = Dim3D(15, 15, 15)
+    start_speed = 6
 
-    def __init__(self, x, y, z, vel_x, vel_y, vel_z):
+    def __init__(self, x, y, z, vel_x, vel_y, vel_z, room):
         self.pos = Pos3D(x, y, z)
+        self.speed = Ball.start_speed
         self.vel = Vel3D(vel_x, vel_y, vel_z)
-        self.rect = Rectangle(self.pos.x, self.pos.y, self.pos.z, Ball.dim.x,
-                Ball.dim.y, MAGENTA)
+        self.rect = Rectangle(0, 0, 0, room.dim.x, room.dim.y, CYAN)
+        self.disc = Rectangle(self.pos.x, self.pos.y, self.pos.z,
+                Ball.dim.x, Ball.dim.y, MAGENTA)
 
     def handle_collision(self, paddle_1, paddle_2, room):
         #can be improved by checking intersection between line and plane
+        status = CollisionStatus.no_collision
         if self.pos.z <= 0:
             if (self.pos.x > paddle_1.pos.x
                     and self.pos.x + self.dim.x < paddle_1.pos.x + paddle_1.dim.x
                     and self.pos.y > paddle_1.pos.y
                     and self.pos.y + self.dim.y < paddle_1.pos.y + paddle_1.dim.y):
-                self.vel.z = 10
-                return CollisionStatus.player_hit
+                self.vel.z = self.speed
+                status = CollisionStatus.player_hit
             else:
-                return CollisionStatus.player_miss
-
-        if self.pos.z >= room.dim.z:
+                status = CollisionStatus.player_miss
+        elif self.pos.z >= room.dim.z:
             if (self.pos.x > paddle_2.pos.x
-                    and self.pos.x + self.dim.x < paddle_2.pos.x + paddle_1.dim.x
-                    and self.pos.y > paddle_1.pos.y
-                    and self.pos.y + self.dim.y < paddle_2.pos.y + paddle_1.dim.y):
-                self.vel.z = -10
-                return computer_hit
+                    and self.pos.x + self.dim.x < paddle_2.pos.x + paddle_2.dim.x
+                    and self.pos.y > paddle_2.pos.y
+                    and self.pos.y + self.dim.y < paddle_2.pos.y + paddle_2.dim.y):
+                self.vel.z = -self.speed
+                print("hej")
+                status = CollisionStatus.computer_hit
             else:
-                return CollisionStatus.computer_miss
+                status = CollisionStatus.computer_miss
 
         if self.pos.x < 0 or self.pos.x + self.dim.x > room.dim.x:
             self.vel.x = -self.vel.x
-            return CollisionStatus.wall_hit
+            status = CollisionStatus.wall_hit
+
+        if self.pos.y < 0 or self.pos.y + self.dim.y > room.dim.y:
+            self.vel.y = -self.vel.y
+            status = CollisionStatus.wall_hit
         
-        return CollisionStatus.no_collision
+        return status
 
     def draw(self, renderer):
         #Draw proper disc!!!
+        self.disc.draw(renderer)
         self.rect.draw(renderer)
 
     def move(self):
         self.pos.x += self.vel.x
         self.pos.y += self.vel.y
         self.pos.z += self.vel.z
-        self.rect.move(self.pos.x, self.pos.y, self.pos.z)
+        self.disc.move(self.pos.x, self.pos.y, self.pos.z)
+        self.rect.move(0, 0, self.pos.z)
+
+class Computer(object):
+    speed = 3
+    def __init__(self, paddle):
+        self.paddle = paddle
+        self.vel = Vel2D(0, 0)
+
+    def _track(self, target):
+        diff_x = target.x - (self.paddle.pos.x + self.paddle.dim.x/2)
+        diff_y = target.y - (self.paddle.pos.y + self.paddle.dim.y/2)
+
+        if (diff_x > Computer.speed):
+            self.vel.x = Computer.speed
+        elif (diff_x < -Computer.speed):
+            self.vel.x = -Computer.speed
+        else:
+            self.vel.x = diff_x
+
+        if (diff_y > Computer.speed):
+            self.vel.y = Computer.speed
+        elif (diff_y < -Computer.speed):
+            self.vel.y = -Computer.speed
+        else:
+            self.vel.y = diff_y
+        
+
+    def move_paddle(self, ball, room):
+        """Tracks the ball if it is heading towards the computer,
+        otherwise returns to the center"""
+        if ball.vel.z > 0:
+            self._track(Pos2D(
+                    ball.pos.x + ball.dim.x/2,
+                    ball.pos.y + ball.dim.y/2))
+        else:
+            self._track(Pos2D(room.dim.x/2, room.dim.y/2))
+
+        x = self.paddle.pos.x + self.vel.x
+        y = self.paddle.pos.y + self.vel.y
+        self.paddle.move(x, y)
+
 
 class Room(object):
     dim = SCENE_DEFAULT
@@ -200,8 +250,10 @@ def main():
     room = Room()
     p1 = Paddle(Room.dim.x/2 - Paddle.dim.x/2, Room.dim.y/2 - Paddle.dim.y/2, 0, 0, 0, OCEAN)
     p2 = Paddle(Room.dim.x/2 - Paddle.dim.x/2, Room.dim.y/2 - Paddle.dim.y/2, Room.dim.z, 0, 0, ORANGE)
-    ball = Ball(Room.dim.x/2 - Ball.dim.x/2, Room.dim.y/2 - Ball.dim.y/2, Room.dim.z/2, 1, 1, -7)
+    ball = Ball(Room.dim.x/2 - Ball.dim.x/2, Room.dim.y/2 - Ball.dim.y/2, Room.dim.z/2, 1, 1, -7, room)
     figures = [room, p1, p2, ball]
+
+    computer = Computer(p2)
 
     running = True
     while running:
@@ -226,6 +278,7 @@ def main():
                 p1.handle_collision(room)
 
         ball.move()
+        computer.move_paddle(ball, room)
         ball.handle_collision(p1, p2, room)
 
         renderer.clear(BLACK)
