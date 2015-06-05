@@ -3,14 +3,11 @@ import os
 import sdl2.ext
 import sdl2
 import ctypes
+import random
 from enum import Enum
 
 root_dir = os.path.dirname(os.path.abspath(__file__))
 resources = sdl2.ext.Resources(os.path.join(root_dir, "resources"))
-
-#
-# CHANGE THESE!!!
-#
 
 BLACK = sdl2.ext.Color(0, 0, 0)
 WHITE = sdl2.ext.Color(255, 255, 255)
@@ -26,9 +23,13 @@ SCREEN_HEIGHT = 600
 COURT_LENGTH = 2400
 
 CollisionStatus = Enum(
-    'CollisionStatus',
-    'player_hit computer_hit player_miss computer_miss wall_hit no_collision'
-    )
+        'CollisionStatus',
+        'player_hit computer_hit player_miss computer_miss wall_hit no_collision'
+        )
+State = Enum(
+        'State',
+        'menu in_play'
+        )
 
 class Vector2D(object):
     def __init__(self, x, y):
@@ -84,7 +85,7 @@ class Figure(object):
         
         return (x + offset_x, y + offset_y)
 
-    def move(self, x, y, z):
+    def place(self, x, y, z):
         self.pos.x, self.pos.y, self.pos.z = x, y, z
         self.redraw = True
 
@@ -123,14 +124,14 @@ class Paddle(object):
             self.pos.x = room.dim.x - self.dim.x
         if self.pos.y > room.dim.y - self.dim.y:
             self.pos.y = room.dim.y - self.dim.y
-        self.move(self.pos.x, self.pos.y)
+        self.place(self.pos.x, self.pos.y)
 
     def draw(self, renderer):
         self.rect.draw(renderer)
 
-    def move(self, x, y):
+    def place(self, x, y):
         self.pos.x, self.pos.y = x, y
-        self.rect.move(x, y, self.pos.z)
+        self.rect.place(x, y, self.pos.z)
 
 class Ball(object):
     dim = Dim3D(15, 15, 15)
@@ -162,7 +163,6 @@ class Ball(object):
                     and self.pos.y > paddle_2.pos.y
                     and self.pos.y + self.dim.y < paddle_2.pos.y + paddle_2.dim.y):
                 self.vel.z = -self.speed
-                print("hej")
                 status = CollisionStatus.computer_hit
             else:
                 status = CollisionStatus.computer_miss
@@ -182,12 +182,17 @@ class Ball(object):
         self.disc.draw(renderer)
         self.rect.draw(renderer)
 
+    def place(self, x, y, z):
+        self.pos = Pos3D(x, y, z)
+        self.disc.place(self.pos.x, self.pos.y, self.pos.z)
+        self.rect.place(0, 0, self.pos.z)
+
     def move(self):
         self.pos.x += self.vel.x
         self.pos.y += self.vel.y
         self.pos.z += self.vel.z
-        self.disc.move(self.pos.x, self.pos.y, self.pos.z)
-        self.rect.move(0, 0, self.pos.z)
+        self.disc.place(self.pos.x, self.pos.y, self.pos.z)
+        self.rect.place(0, 0, self.pos.z)
 
 class Computer(object):
     speed = 3
@@ -195,7 +200,9 @@ class Computer(object):
         self.paddle = paddle
         self.vel = Vel2D(0, 0)
 
-    def _track(self, target):
+    def track(self, target):
+        """Moves the paddle towards a given target. Returns true if the paddle is
+        on target."""
         diff_x = target.x - (self.paddle.pos.x + self.paddle.dim.x/2)
         diff_y = target.y - (self.paddle.pos.y + self.paddle.dim.y/2)
 
@@ -212,21 +219,35 @@ class Computer(object):
             self.vel.y = -Computer.speed
         else:
             self.vel.y = diff_y
+
+        return (diff_x < 2 and diff_y < 2)
+
+    def move_paddle(self):
+        x = self.paddle.pos.x + self.vel.x
+        y = self.paddle.pos.y + self.vel.y
+        self.paddle.place(x, y)
         
 
-    def move_paddle(self, ball, room):
+    def catch_ball(self, ball, room):
         """Tracks the ball if it is heading towards the computer,
-        otherwise returns to the center"""
+        otherwise returns to the center."""
         if ball.vel.z > 0:
-            self._track(Pos2D(
+            self.track(Pos2D(
                     ball.pos.x + ball.dim.x/2,
                     ball.pos.y + ball.dim.y/2))
         else:
-            self._track(Pos2D(room.dim.x/2, room.dim.y/2))
+            self.track(Pos2D(room.dim.x/2, room.dim.y/2))
 
-        x = self.paddle.pos.x + self.vel.x
-        y = self.paddle.pos.y + self.vel.y
-        self.paddle.move(x, y)
+    def aim_serve(self):
+        """Sets the position of the paddle when serving."""
+        self.serve_pos.x = random.randint(0, room.dim.x - p2.dim.x)
+        self.serve_pos.y = random.randint(0, room.dim.y - p2.dim.y)
+
+    def is_serving(self):
+        """Approach serve position. Call aim_serve() first. Returns true
+        when ready to serve."""
+        return not self.track(self.serve_pos.x, self.serve_pos.y) 
+
 
 
 class Room(object):
@@ -247,6 +268,10 @@ def main():
     renderer = sdl2.ext.Renderer(window)
     sdl2.SDL_SetRelativeMouseMode(True)
 
+    #state = State.in_game
+
+    random.seed()
+
     room = Room()
     p1 = Paddle(Room.dim.x/2 - Paddle.dim.x/2, Room.dim.y/2 - Paddle.dim.y/2, 0, 0, 0, OCEAN)
     p2 = Paddle(Room.dim.x/2 - Paddle.dim.x/2, Room.dim.y/2 - Paddle.dim.y/2, Room.dim.z, 0, 0, ORANGE)
@@ -255,39 +280,104 @@ def main():
 
     computer = Computer(p2)
 
-    running = True
-    while running:
-        events = sdl2.ext.get_events()
-        for event in events:
-            if event.type == sdl2.SDL_QUIT:
-                running = False
-                break
-            if event.type == sdl2.SDL_KEYDOWN:
-                if event.key.keysym.sym == sdl2.SDLK_UP:
-                    pass
-                    #move player up
-                elif event.key.keysym.sym == sdl2.SDLK_DOWN:
-                    pass
-                    #move player down
-            elif event.type == sdl2.SDL_KEYUP:
-                if event.key.keysym.sym in (sdl2.SDLK_UP, sdl2.SDLK_DOWN):
-                    #stop moving
-                    pass
-            elif event.type == sdl2.SDL_MOUSEMOTION:
-                p1.move(event.motion.x, event.motion.y)
-
-        ball.move()
-        computer.move_paddle(ball, room)
-        p1.handle_collision(room)
-        p2.handle_collision(room)
-        ball.handle_collision(p1, p2, room)
-
+    def refresh_screen():
         renderer.clear(BLACK)
         for figure in figures:
             figure.draw(renderer)
 
         sdl2.SDL_Delay(10)
         renderer.present()
+
+
+    def player_serve():
+        while True:
+            events = sdl2.ext.get_events()
+            for event in events:
+                if event.type == sdl2.SDL_QUIT:
+                    running = False
+                    return
+                elif event.type == sdl2.SDL_KEYDOWN:
+                    if event.key.keysym.sym == sdl2.SDLK_UP:
+                        #pause
+                        pass
+                elif event.type == sdl2.SDL_MOUSEMOTION:
+                    p1.place(event.motion.x, event.motion.y)
+                    ball.place(p1.pos.x + p1.dim.x/2 - ball.dim.x/2,
+                               p1.pos.y + p1.dim.y/2 - ball.dim.y/2,
+                               p1.pos.z)
+                elif event.type == sdl2.SDL_MOUSEBUTTONDOWN:
+                    ball.vel = Vel3D(0, 0, Ball.start_speed)
+                    return
+            refresh_screen()
+
+    def computer_serve():
+        computer.aim_serve()
+        while computer.is_serving():
+            events = sdl2.ext.get_events()
+            for event in events:
+                if event.type == sdl2.SDL_QUIT:
+                    running = False
+                    return
+                elif event.type == sdl2.SDL_KEYDOWN:
+                    if event.key.keysym.sym == sdl2.SDLK_UP:
+                        #pause
+                        pass
+            computer.move_paddle()
+            ball.place(computer.pos.x + computer.dim.x/2 - ball.dim.x/2,
+                       computer.pos.x + computer.dim.x/2 - ball.dim.x/2,
+                       computer.pos.z)
+            refresh_sreen()
+            
+    def in_game():
+        is_player_serving = True
+        player_points = 0
+        computer_points = 0
+
+        while True:
+            if player_points == 3:
+                print("Player wins")
+                return
+            elif computer_points == 3:
+                print("Computer wins")
+                return
+
+            if player_serve:
+                player_serve()
+            else:
+                computer_serve()
+            
+            while True:
+                events = sdl2.ext.get_events()
+                for event in events:
+                    if event.type == sdl2.SDL_QUIT:
+                        running = False
+                        return
+                    if event.type == sdl2.SDL_KEYDOWN:
+                        if event.key.keysym.sym == sdl2.SDLK_UP:
+                            #pause
+                            pass
+                    elif event.type == sdl2.SDL_MOUSEMOTION:
+                        p1.place(event.motion.x, event.motion.y)
+
+                ball.move()
+                computer.catch_ball(ball, room)
+                computer.move_paddle()
+                p1.handle_collision(room)
+                p2.handle_collision(room)
+                ball_status = ball.handle_collision(p1, p2, room)
+
+                if ball_status == CollisionStatus.computer_miss:
+                    is_player_serving = True
+                    player_points += 1
+                    break
+                elif ball_status == CollisionStatus.player_miss:
+                    is_player_serving = False
+                    computer_points += 1
+                    break
+
+                refresh_screen()
+    #import pdb; pdb.set_trace()
+    in_game()
 
     return 0
 
