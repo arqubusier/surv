@@ -275,10 +275,11 @@ def main():
                     pass
             elif event.type == sdl2.SDL_MOUSEMOTION:
                 p1.move(event.motion.x, event.motion.y)
-                p1.handle_collision(room)
 
         ball.move()
         computer.move_paddle(ball, room)
+        p1.handle_collision(room)
+        p2.handle_collision(room)
         ball.handle_collision(p1, p2, room)
 
         renderer.clear(BLACK)
