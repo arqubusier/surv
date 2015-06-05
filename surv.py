@@ -2,6 +2,7 @@ import sys
 import os
 import sdl2.ext
 import sdl2
+import ctypes
 
 root_dir = os.path.dirname(os.path.abspath(__file__))
 resources = sdl2.ext.Resources(os.path.join(root_dir, "resources"))
@@ -12,9 +13,12 @@ resources = sdl2.ext.Resources(os.path.join(root_dir, "resources"))
 
 BLACK = sdl2.ext.Color(0, 0, 0)
 WHITE = sdl2.ext.Color(255, 255, 255)
-PINK = sdl2.ext.Color(255, 255, 255)
+MAGENTA = sdl2.ext.Color(255, 0, 255)
+CYAN = sdl2.ext.Color(0, 255, 255)
+YELLOW = sdl2.ext.Color(255, 255, 0)
 GREEN = sdl2.ext.Color(0, 255, 0)
-ORANGE = sdl2.ext.Color(255, 0, 0)
+ORANGE = sdl2.ext.Color(255, 125, 0)
+OCEAN = sdl2.ext.Color(0, 125, 255)
 
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
@@ -75,7 +79,7 @@ class Figure(object):
         return (x + offset_x, y + offset_y)
 
     def move(self, x, y, z):
-        self.x, self.y, self.z = x, y, z
+        self.pos.x, self.pos.y, self.pos.z = x, y, z
         self.redraw = True
 
     def should_redraw(self):
@@ -99,8 +103,8 @@ class Rectangle(Figure):
         renderer.draw_rect((round(x), round(y), round(dim_x), round(dim_y)), self.color)
 
 class Paddle(object):
-    LENGTH_X = 80
-    LENGTH_Y = 60
+    LENGTH_X = 120
+    LENGTH_Y = 90
 
     def __init__(self, x, y, z, vel_x, vel_y, color):
         self.pos = Pos3D(x, y, z)
@@ -108,10 +112,18 @@ class Paddle(object):
         self.rect = Rectangle(x, y, z, Paddle.LENGTH_X, Paddle.LENGTH_Y, color)
 
     def handle_collision(self, room):
-        pass
+        if self.pos.x > room.dim.x - self.LENGTH_X:
+            self.pos.x = room.dim.x - self.LENGTH_X
+        if self.pos.y > room.dim.y - self.LENGTH_Y:
+            self.pos.y = room.dim.y - self.LENGTH_Y
+        self.move(self.pos.x, self.pos.y)
 
     def draw(self, renderer):
         self.rect.draw(renderer)
+
+    def move(self, x, y):
+        self.pos.x, self.pos.y = x, y
+        self.rect.move(x, y, self.pos.z)
 
 class Ball(object):
     LENGTH_X = 15
@@ -121,19 +133,20 @@ class Ball(object):
     def __init__(self, x, y, z, vel_x, vel_y, vel_z):
         self.pos = Pos3D(x, y, z)
         self.vel = Vel3D(vel_x, vel_y, vel_z)
+        self.rect = Rectangle(self.pos.x, self.pos.y, self.pos.z, Ball.LENGTH_X, Ball.LENGTH_Y, MAGENTA)
 
     def handle_collision(paddle_1, paddle_2, room):
         pass
 
     def draw(self, renderer):
         #Draw proper disc!!!
-        Rectangle(self.pos.x, self.pos.y, self.pos.z, Ball.LENGTH_X, Ball.LENGTH_Y, PINK).draw(renderer)
+        self.rect.draw(renderer)
 
 class Room(object):
     dim = SCENE_DEFAULT
     def __init__(self):
         rects_spacing = Room.dim.z//8
-        self.rects = [Rectangle(0, 0, z, Room.dim.x, Room.dim.y, WHITE)
+        self.rects = [Rectangle(0, 0, z, Room.dim.x, Room.dim.y, GREEN)
                 for z in range(0, Room.dim.z + rects_spacing , rects_spacing)]
 
     def draw(self, renderer):
@@ -145,9 +158,10 @@ def main():
     window = sdl2.ext.Window("SURV!", size=(800, 600))
     window.show()
     renderer = sdl2.ext.Renderer(window)
+    sdl2.SDL_SetRelativeMouseMode(True)
 
     room = Room()
-    p1 = Paddle(Room.dim.x/2 - Paddle.LENGTH_X/2, Room.dim.y/2 - Paddle.LENGTH_Y/2, 0, 0, 0, GREEN)
+    p1 = Paddle(Room.dim.x/2 - Paddle.LENGTH_X/2, Room.dim.y/2 - Paddle.LENGTH_Y/2, 0, 0, 0, OCEAN)
     p2 = Paddle(Room.dim.x/2 - Paddle.LENGTH_X/2, Room.dim.y/2 - Paddle.LENGTH_Y/2, Room.dim.z, 0, 0, ORANGE)
     ball = Ball(Room.dim.x/2 - Ball.LENGTH_X/2, Room.dim.y/2 - Ball.LENGTH_Y/2, Room.dim.z/2, 0, 0, 0)
     figures = [room, p1, p2, ball]
@@ -170,6 +184,10 @@ def main():
                 if event.key.keysym.sym in (sdl2.SDLK_UP, sdl2.SDLK_DOWN):
                     #stop moving
                     pass
+            elif event.type == sdl2.SDL_MOUSEMOTION:
+                p1.move(event.motion.x, event.motion.y)
+                p1.handle_collision(room)
+
         renderer.clear(BLACK)
         for figure in figures:
             figure.draw(renderer)
