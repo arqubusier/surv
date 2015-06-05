@@ -3,6 +3,7 @@ import os
 import sdl2.ext
 import sdl2
 import ctypes
+from enum import Enum
 
 root_dir = os.path.dirname(os.path.abspath(__file__))
 resources = sdl2.ext.Resources(os.path.join(root_dir, "resources"))
@@ -23,6 +24,11 @@ OCEAN = sdl2.ext.Color(0, 125, 255)
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
 COURT_LENGTH = 2400
+
+CollisionStatus = Enum(
+    'CollisionStatus',
+    'player_hit computer_hit player_miss computer_miss wall_hit no_collision'
+    )
 
 class Vector2D(object):
     def __init__(self, x, y):
@@ -92,30 +98,31 @@ class Rectangle(Figure):
         super().__init__(x, y, z, len_x, len_y, color)
 
     def draw(self, renderer):
-        """Draws the rect, scaling the width and height and offsetting the x and y coordinates according to the
-        the z-coordinate. These operations are both linear functions of z"""
+        """Draws the rect, scaling the width and height and offsetting the x
+        and y coordinates according to the the z-coordinate. These operations
+        are both linear functions of z"""
         if not super().should_redraw():
             return
 
         dim_x, dim_y = super().scale_dim()
         x, y = super().scale_pos()
         
-        renderer.draw_rect((round(x), round(y), round(dim_x), round(dim_y)), self.color)
+        renderer.draw_rect((round(x), round(y), round(dim_x), round(dim_y)),
+                self.color)
 
 class Paddle(object):
-    LENGTH_X = 120
-    LENGTH_Y = 90
+    dim = Dim2D(120, 90)
 
     def __init__(self, x, y, z, vel_x, vel_y, color):
         self.pos = Pos3D(x, y, z)
         self.vel = Vel2D(vel_x, vel_y)
-        self.rect = Rectangle(x, y, z, Paddle.LENGTH_X, Paddle.LENGTH_Y, color)
+        self.rect = Rectangle(x, y, z, Paddle.dim.x, Paddle.dim.y, color)
 
     def handle_collision(self, room):
-        if self.pos.x > room.dim.x - self.LENGTH_X:
-            self.pos.x = room.dim.x - self.LENGTH_X
-        if self.pos.y > room.dim.y - self.LENGTH_Y:
-            self.pos.y = room.dim.y - self.LENGTH_Y
+        if self.pos.x > room.dim.x - self.dim.x:
+            self.pos.x = room.dim.x - self.dim.x
+        if self.pos.y > room.dim.y - self.dim.y:
+            self.pos.y = room.dim.y - self.dim.y
         self.move(self.pos.x, self.pos.y)
 
     def draw(self, renderer):
@@ -126,21 +133,51 @@ class Paddle(object):
         self.rect.move(x, y, self.pos.z)
 
 class Ball(object):
-    LENGTH_X = 15
-    LENGTH_Y = 15
-    LENGTH_Z = 15
+    dim = Dim3D(15, 15, 15)
 
     def __init__(self, x, y, z, vel_x, vel_y, vel_z):
         self.pos = Pos3D(x, y, z)
         self.vel = Vel3D(vel_x, vel_y, vel_z)
-        self.rect = Rectangle(self.pos.x, self.pos.y, self.pos.z, Ball.LENGTH_X, Ball.LENGTH_Y, MAGENTA)
+        self.rect = Rectangle(self.pos.x, self.pos.y, self.pos.z, Ball.dim.x,
+                Ball.dim.y, MAGENTA)
 
-    def handle_collision(paddle_1, paddle_2, room):
-        pass
+    def handle_collision(self, paddle_1, paddle_2, room):
+        #can be improved by checking intersection between line and plane
+        if self.pos.z <= 0:
+            if (self.pos.x > paddle_1.pos.x
+                    and self.pos.x + self.dim.x < paddle_1.pos.x + paddle_1.dim.x
+                    and self.pos.y > paddle_1.pos.y
+                    and self.pos.y + self.dim.y < paddle_1.pos.y + paddle_1.dim.y):
+                self.vel.z = 10
+                return CollisionStatus.player_hit
+            else:
+                return CollisionStatus.player_miss
+
+        if self.pos.z >= room.dim.z:
+            if (self.pos.x > paddle_2.pos.x
+                    and self.pos.x + self.dim.x < paddle_2.pos.x + paddle_1.dim.x
+                    and self.pos.y > paddle_1.pos.y
+                    and self.pos.y + self.dim.y < paddle_2.pos.y + paddle_1.dim.y):
+                self.vel.z = -10
+                return computer_hit
+            else:
+                return CollisionStatus.computer_miss
+
+        if self.pos.x < 0 or self.pos.x + self.dim.x > room.dim.x:
+            self.vel.x = -self.vel.x
+            return CollisionStatus.wall_hit
+        
+        return CollisionStatus.no_collision
 
     def draw(self, renderer):
         #Draw proper disc!!!
         self.rect.draw(renderer)
+
+    def move(self):
+        self.pos.x += self.vel.x
+        self.pos.y += self.vel.y
+        self.pos.z += self.vel.z
+        self.rect.move(self.pos.x, self.pos.y, self.pos.z)
 
 class Room(object):
     dim = SCENE_DEFAULT
@@ -161,9 +198,9 @@ def main():
     sdl2.SDL_SetRelativeMouseMode(True)
 
     room = Room()
-    p1 = Paddle(Room.dim.x/2 - Paddle.LENGTH_X/2, Room.dim.y/2 - Paddle.LENGTH_Y/2, 0, 0, 0, OCEAN)
-    p2 = Paddle(Room.dim.x/2 - Paddle.LENGTH_X/2, Room.dim.y/2 - Paddle.LENGTH_Y/2, Room.dim.z, 0, 0, ORANGE)
-    ball = Ball(Room.dim.x/2 - Ball.LENGTH_X/2, Room.dim.y/2 - Ball.LENGTH_Y/2, Room.dim.z/2, 0, 0, 0)
+    p1 = Paddle(Room.dim.x/2 - Paddle.dim.x/2, Room.dim.y/2 - Paddle.dim.y/2, 0, 0, 0, OCEAN)
+    p2 = Paddle(Room.dim.x/2 - Paddle.dim.x/2, Room.dim.y/2 - Paddle.dim.y/2, Room.dim.z, 0, 0, ORANGE)
+    ball = Ball(Room.dim.x/2 - Ball.dim.x/2, Room.dim.y/2 - Ball.dim.y/2, Room.dim.z/2, 1, 1, -7)
     figures = [room, p1, p2, ball]
 
     running = True
@@ -187,6 +224,9 @@ def main():
             elif event.type == sdl2.SDL_MOUSEMOTION:
                 p1.move(event.motion.x, event.motion.y)
                 p1.handle_collision(room)
+
+        ball.move()
+        ball.handle_collision(p1, p2, room)
 
         renderer.clear(BLACK)
         for figure in figures:
