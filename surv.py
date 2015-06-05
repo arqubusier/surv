@@ -135,7 +135,7 @@ class Paddle(object):
 
 class Ball(object):
     dim = Dim3D(15, 15, 15)
-    start_speed = 6
+    start_speed = 20
 
     def __init__(self, x, y, z, vel_x, vel_y, vel_z, room):
         self.pos = Pos3D(x, y, z)
@@ -195,10 +195,11 @@ class Ball(object):
         self.rect.place(0, 0, self.pos.z)
 
 class Computer(object):
-    speed = 3
-    def __init__(self, paddle):
+    speed = 2 
+    def __init__(self, paddle, room):
         self.paddle = paddle
         self.vel = Vel2D(0, 0)
+        self.serve_pos = Vel2D(0, 0)
 
     def track(self, target):
         """Moves the paddle towards a given target. Returns true if the paddle is
@@ -238,15 +239,15 @@ class Computer(object):
         else:
             self.track(Pos2D(room.dim.x/2, room.dim.y/2))
 
-    def aim_serve(self):
+    def aim_serve(self, room):
         """Sets the position of the paddle when serving."""
-        self.serve_pos.x = random.randint(0, room.dim.x - p2.dim.x)
-        self.serve_pos.y = random.randint(0, room.dim.y - p2.dim.y)
+        self.serve_pos.x = random.randint(0, room.dim.x - self.paddle.dim.x)
+        self.serve_pos.y = random.randint(0, room.dim.y - self.paddle.dim.y)
 
     def is_serving(self):
         """Approach serve position. Call aim_serve() first. Returns true
         when ready to serve."""
-        return not self.track(self.serve_pos.x, self.serve_pos.y) 
+        return not self.track(Pos2D(self.serve_pos.x, self.serve_pos.y))
 
 
 
@@ -278,7 +279,7 @@ def main():
     ball = Ball(Room.dim.x/2 - Ball.dim.x/2, Room.dim.y/2 - Ball.dim.y/2, Room.dim.z/2, 1, 1, -7, room)
     figures = [room, p1, p2, ball]
 
-    computer = Computer(p2)
+    computer = Computer(p2, room)
 
     def refresh_screen():
         renderer.clear(BLACK)
@@ -311,7 +312,7 @@ def main():
             refresh_screen()
 
     def computer_serve():
-        computer.aim_serve()
+        computer.aim_serve(room)
         while computer.is_serving():
             events = sdl2.ext.get_events()
             for event in events:
@@ -323,10 +324,10 @@ def main():
                         #pause
                         pass
             computer.move_paddle()
-            ball.place(computer.pos.x + computer.dim.x/2 - ball.dim.x/2,
-                       computer.pos.x + computer.dim.x/2 - ball.dim.x/2,
-                       computer.pos.z)
-            refresh_sreen()
+            ball.place(p2.pos.x + p2.dim.x/2 - ball.dim.x/2,
+                       p2.pos.y + p2.dim.y/2 - ball.dim.y/2,
+                       p2.pos.z)
+            refresh_screen()
             
     def in_game():
         is_player_serving = True
@@ -341,7 +342,7 @@ def main():
                 print("Computer wins")
                 return
 
-            if player_serve:
+            if is_player_serving:
                 player_serve()
             else:
                 computer_serve()
@@ -366,6 +367,8 @@ def main():
                 p2.handle_collision(room)
                 ball_status = ball.handle_collision(p1, p2, room)
 
+                refresh_screen()
+
                 if ball_status == CollisionStatus.computer_miss:
                     is_player_serving = True
                     player_points += 1
@@ -375,7 +378,6 @@ def main():
                     computer_points += 1
                     break
 
-                refresh_screen()
     #import pdb; pdb.set_trace()
     in_game()
 
