@@ -13,11 +13,12 @@ resources = sdl2.ext.Resources(os.path.join(root_dir, "resources"))
 BLACK = sdl2.ext.Color(0, 0, 0)
 WHITE = sdl2.ext.Color(255, 255, 255)
 PINK = sdl2.ext.Color(255, 255, 255)
-GEEN = sdl2.ext.Color(255, 255, 255)
-ORANGE = sdl2.ext.Color(255, 255, 255)
+GREEN = sdl2.ext.Color(0, 255, 0)
+ORANGE = sdl2.ext.Color(255, 0, 0)
 
-SCALE_X = 1/2400 * 1/4
-SCALE_Y = SCALE_X
+SCREEN_WIDTH = 800
+SCREEN_HEIGHT = 600
+COURT_LENGTH = 2400
 
 class Vector2D(object):
     def __init__(self, x, y):
@@ -37,80 +38,107 @@ Vel3D = Vector3D
 Dim2D = Vector2D
 Dim3D = Vector3D
 
+SCENE_DEFAULT = Dim3D(SCREEN_WIDTH, SCREEN_HEIGHT, COURT_LENGTH)
 
-class Rectangle(object):
+class Figure(object):
+    #The ratio of the opposing wall to the front facing wall
+    RATIO = 0.25
+    scene = SCENE_DEFAULT
     def __init__(self, x, y, z, len_x, len_y, color):
         self.pos = Pos3D(x, y, z)
         self.dim = Dim2D(len_x, len_y)
         self.color = color
-    
-    def draw(self, renderer, room):
-        """Draws the rect, scaling the width and height and offsetting the x and y coordinates according to the
-        the z-coordinate. These operations are both linear functions of z"""
-        #The ratio of the opposing wall to the front facing wall
-        ratio = 0.25
-        gradient_x = (ratio - 1)*self.dim.x/room.dim.z
-        gradient_y = (ratio - 1)*self.dim.y/room.dim.z
+        self.redraw = True
+
+    def scale_dim(self):
+        gradient_x = (Figure.RATIO - 1)*self.dim.x/Figure.scene.z
+        gradient_y = (Figure.RATIO - 1)*self.dim.y/Figure.scene.z
 
         dim_x = gradient_x*self.pos.z + self.dim.x
         dim_y = gradient_y*self.pos.z + self.dim.y
+        
+        return (dim_x, dim_y)
 
-        gradient_x = (1 - ratio) * room.dim.x / 2 / room.dim.z
-        gradient_y = (1 - ratio) * room.dim.y / 2 / room.dim.z
-        offset_x = gradient_x*self.pos.z
-        offset_y = gradient_y*self.pos.z
+    def scale_pos(self):
+        offs_slope_x = (1 - Figure.RATIO) * Figure.scene.x / 2 / Figure.scene.z
+        offs_slope_y = (1 - Figure.RATIO) * Figure.scene.y / 2 / Figure.scene.z
+        offset_x = offs_slope_x*self.pos.z
+        offset_y = offs_slope_y*self.pos.z
 
-        x = self.pos.x + offset_x
-        y = self.pos.y + offset_y
+        pos_slope_x = (Figure.RATIO - 1)*self.pos.x/Figure.scene.z
+        pos_slope_y = (Figure.RATIO - 1)*self.pos.y/Figure.scene.z
 
+
+        x = pos_slope_x*self.pos.z + self.pos.x
+        y = pos_slope_y*self.pos.z + self.pos.y
+        
+        return (x + offset_x, y + offset_y)
+
+    def move(self, x, y, z):
+        self.x, self.y, self.z = x, y, z
+        self.redraw = True
+
+    def should_redraw(self):
+        old_val = self.redraw
+        redraw = False
+        return old_val
+
+class Rectangle(Figure):
+    def __init__(self, x, y, z, len_x, len_y, color):
+        super().__init__(x, y, z, len_x, len_y, color)
+
+    def draw(self, renderer):
+        """Draws the rect, scaling the width and height and offsetting the x and y coordinates according to the
+        the z-coordinate. These operations are both linear functions of z"""
+        if not super().should_redraw():
+            return
+
+        dim_x, dim_y = super().scale_dim()
+        x, y = super().scale_pos()
+        
         renderer.draw_rect((round(x), round(y), round(dim_x), round(dim_y)), self.color)
 
 class Paddle(object):
     LENGTH_X = 80
-    LENGTH_y = 60
+    LENGTH_Y = 60
 
-    def __init__(self, x, y, z, vel_x, vel_y):
+    def __init__(self, x, y, z, vel_x, vel_y, color):
         self.pos = Pos3D(x, y, z)
         self.vel = Vel2D(vel_x, vel_y)
-        self.dim = Dim2D(LENGTH_X, LENGTH_y)
+        self.rect = Rectangle(x, y, z, Paddle.LENGTH_X, Paddle.LENGTH_Y, color)
 
     def handle_collision(self, room):
         pass
 
     def draw(self, renderer):
-        pass
+        self.rect.draw(renderer)
 
 class Ball(object):
     LENGTH_X = 15
-    LENGTH_y = 15
+    LENGTH_Y = 15
     LENGTH_Z = 15
 
     def __init__(self, x, y, z, vel_x, vel_y, vel_z):
         self.pos = Pos3D(x, y, z)
         self.vel = Vel3D(vel_x, vel_y, vel_z)
-        self.dim = Dim3D(LENGTH_X, LENGTH_Y, LENGTH_Z)
 
     def handle_collision(paddle_1, paddle_2, room):
         pass
 
-    def draw(self, renderer, room):
+    def draw(self, renderer):
         #Draw proper disc!!!
-        Rectangle(self, self.x, self.y, self.z, LENGTH_X, LENGTH_Y, LENGTH_Z).draw(renderer, room)
+        Rectangle(self.pos.x, self.pos.y, self.pos.z, Ball.LENGTH_X, Ball.LENGTH_Y, PINK).draw(renderer)
 
 class Room(object):
-    LENGTH_X = 800
-    LENGTH_Y = 600
-    LENGTH_Z = 2400
-
+    dim = SCENE_DEFAULT
     def __init__(self):
-        self.dim = Dim3D(Room.LENGTH_X, Room.LENGTH_Y, Room.LENGTH_Z)
-        rects_spacing = Room.LENGTH_Z//8
-        self.rects = [Rectangle(0, 0, z, Room.LENGTH_X, Room.LENGTH_Y, WHITE)
-                for z in range(0, Room.LENGTH_Z + rects_spacing , rects_spacing)]
+        rects_spacing = Room.dim.z//8
+        self.rects = [Rectangle(0, 0, z, Room.dim.x, Room.dim.y, WHITE)
+                for z in range(0, Room.dim.z + rects_spacing , rects_spacing)]
 
     def draw(self, renderer):
         for rect in self.rects:
-            rect.draw(renderer, self)
+            rect.draw(renderer)
 
 def main():
     sdl2.ext.init()
@@ -119,6 +147,10 @@ def main():
     renderer = sdl2.ext.Renderer(window)
 
     room = Room()
+    p1 = Paddle(Room.dim.x/2 - Paddle.LENGTH_X/2, Room.dim.y/2 - Paddle.LENGTH_Y/2, 0, 0, 0, GREEN)
+    p2 = Paddle(Room.dim.x/2 - Paddle.LENGTH_X/2, Room.dim.y/2 - Paddle.LENGTH_Y/2, Room.dim.z, 0, 0, ORANGE)
+    ball = Ball(Room.dim.x/2 - Ball.LENGTH_X/2, Room.dim.y/2 - Ball.LENGTH_Y/2, Room.dim.z/2, 0, 0, 0)
+    figures = [room, p1, p2, ball]
 
     running = True
     while running:
@@ -139,7 +171,9 @@ def main():
                     #stop moving
                     pass
         renderer.clear(BLACK)
-        room.draw(renderer)
+        for figure in figures:
+            figure.draw(renderer)
+
         sdl2.SDL_Delay(10)
         renderer.present()
 
