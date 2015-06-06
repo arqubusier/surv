@@ -151,20 +151,20 @@ class Ball(object):
                 Ball.dim.x, Ball.dim.y, MAGENTA)
     
     def handle_collision_paddle(self, paddle):
-        print("max", max(self.pos.z, self.old_pos.z), "min", min(self.pos.z, self.old_pos.z)) 
-
         if (paddle.pos.z <= max(self.pos.z, self.old_pos.z)
                 and paddle.pos.z >= min(self.pos.z, self.old_pos.z)):
 
             relative = Pos2D(self.pos.x + Ball.dim.x/2 - paddle.pos.x,
                              self.pos.y + Ball.dim.y/2 - paddle.pos.y) 
+            print(relative.x, relative.y)
 
             if (relative.x >= 0 and relative.x < paddle.dim.x
                     and relative.y >= 0 and relative.y < paddle.dim.y):
-                vel_offset = Vel2D(Ball.deflection.x*(2*relative.x/paddle.dim - 1),
-                                    Ball.deflection.y(2*relative.y/paddle.dim - 1))
+                vel_offset = Vel2D(Ball.deflection.x*(2*relative.x/paddle.dim.x - 1),
+                                    Ball.deflection.y*(2*relative.y/paddle.dim.y - 1))
                 self.vel.x += vel_offset.x
                 self.vel.y += vel_offset.y
+                self.vel.z = -self.vel.z
                 return self.PaddleCollision.hit
             else:
                 return self.PaddleCollision.miss
@@ -183,7 +183,6 @@ class Ball(object):
             return CollisionStatus.player_miss
 
         if computer_status == self.PaddleCollision.hit:
-            self.vel.z = -self.speed
             self.place(self.pos.x, self.pos.y, self.pos.z + self.vel.z)
             return CollisionStatus.computer_hit
         elif computer_status == self.PaddleCollision.miss:
@@ -355,7 +354,7 @@ def main():
             computer.move_paddle()
             ball.place(p2.pos.x + p2.dim.x/2 - ball.dim.x/2,
                        p2.pos.y + p2.dim.y/2 - ball.dim.y/2,
-                       p2.pos.z + Ball.start_speed)
+                       p2.pos.z - Ball.start_speed)
             refresh_screen()
             
     def in_game():
