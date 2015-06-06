@@ -4,8 +4,9 @@ import sdl2.ext
 import sdl2
 import ctypes
 import random
-from copy import copy
+from copy import copy, deepcopy
 from enum import Enum
+from collections import deque
 
 root_dir = os.path.dirname(os.path.abspath(__file__))
 resources = sdl2.ext.Resources(os.path.join(root_dir, "resources"))
@@ -36,15 +37,23 @@ class Vector2D(object):
     def __init__(self, x, y):
         self.x = x
         self.y = y
+    def __add__(self, other):
+        return(self.x + other.x, self.y + other.y)
+
     def __sub__(self, other):
-        self.x -= other.x
-        self.y -= other.y
+        return(self.x + other.x, self.y + other.y)
 
 class Vector3D(object):
     def __init__(self, x, y, z):
         self.x = x
         self.y = y
         self.z = z
+
+    def __add__(self, other):
+        return(self.x - other.x, self.y - other.y, self.z - other.z)
+
+    def __sub__(self, other):
+        return(self.x - other.x, self.y - other.y)
 
 Pos2D = Vector2D
 Pos3D = Vector3D
@@ -122,6 +131,7 @@ class Paddle(object):
         self.pos = Pos3D(x, y, z)
         self.vel = Vel2D(vel_x, vel_y)
         self.rect = Rectangle(x, y, z, Paddle.dim.x, Paddle.dim.y, color)
+        self.positions = deque([self.pos], 5)
 
     def handle_collision(self, room):
         """Keeps paddle within bounds of the room."""
@@ -134,10 +144,21 @@ class Paddle(object):
     def draw(self, renderer):
         self.rect.draw(renderer)
 
+    """
+    def _calculate_velocity(self):
+        n = self.positions.count()
+        self.vel = Vel2D(0, 0)
+
+        if n <= 1:
+            return self.vel
+        copy = deepcopy
+        for i in range(1,n): 
+            self.vel += (self.positions[i] - self.positions[i-1])/(n-1)
+            """
+
     def place(self, x, y):
-        old_pos = self.pos
         self.pos.x, self.pos.y = x, y
-        self.vel.x, self.
+        self.positions.append(self.pos)
         self.rect.place(x, y, self.pos.z)
 
 class Ball(object):
@@ -169,7 +190,7 @@ class Ball(object):
                     and relative.y >= 0 and relative.y < paddle.dim.y):
                 vel_defl = Vel2D(Ball.deflection.x*(2*relative.x/paddle.dim.x - 1),
                                     Ball.deflection.y*(2*relative.y/paddle.dim.y - 1))
-                self.curve = Vel2D(max(Ball.curve.x, paddle.vel.x
+                self.curve = Vel2D(max(Ball.curve.x, -paddle.vel.x), max(Ball.curve.y, -paddle.vel.y)) 
 
                 self.vel.x += vel_defl.x
                 self.vel.y += vel_defl.y
@@ -222,8 +243,8 @@ class Ball(object):
 
     def move(self):
         self.old_pos =copy(self.pos)
-        self.pos.x += self.vel.x
-        self.pos.y += self.vel.y
+        self.pos.x += self.vel.x #+ self.curve.x
+        self.pos.y += self.vel.y #+ self.curve.y
         self.pos.z += self.vel.z
         self.disc.place(self.pos.x, self.pos.y, self.pos.z)
         self.rect.place(0, 0, self.pos.z)
@@ -403,6 +424,8 @@ def main():
                 p1.handle_collision(room)
                 p2.handle_collision(room)
                 ball_status = ball.handle_collision(p1, p2, room)
+
+                print("vel", p1.vel.x, p2.vel.y)
 
                 refresh_screen()
 
