@@ -36,6 +36,9 @@ class Vector2D(object):
     def __init__(self, x, y):
         self.x = x
         self.y = y
+    def __sub__(self, other):
+        self.x -= other.x
+        self.y -= other.y
 
 class Vector3D(object):
     def __init__(self, x, y, z):
@@ -132,12 +135,15 @@ class Paddle(object):
         self.rect.draw(renderer)
 
     def place(self, x, y):
+        old_pos = self.pos
         self.pos.x, self.pos.y = x, y
+        self.vel.x, self.
         self.rect.place(x, y, self.pos.z)
 
 class Ball(object):
     dim = Dim3D(15, 15, 15)
     deflection = Vector2D(5, 5)
+    curve = Vector2D(3, 3)
     start_speed = 20
     PaddleCollision = Enum("PaddleCollision", "hit miss no_collision")
 
@@ -146,6 +152,7 @@ class Ball(object):
         self.old_pos = Pos3D(x, y, z)
         self.speed = Ball.start_speed
         self.vel = Vel3D(vel_x, vel_y, vel_z)
+        self.acc = Vel2D(0, 0)
         self.rect = Rectangle(0, 0, 0, room.dim.x, room.dim.y, CYAN)
         self.disc = Rectangle(self.pos.x, self.pos.y, self.pos.z,
                 Ball.dim.x, Ball.dim.y, MAGENTA)
@@ -160,10 +167,12 @@ class Ball(object):
 
             if (relative.x >= 0 and relative.x < paddle.dim.x
                     and relative.y >= 0 and relative.y < paddle.dim.y):
-                vel_offset = Vel2D(Ball.deflection.x*(2*relative.x/paddle.dim.x - 1),
+                vel_defl = Vel2D(Ball.deflection.x*(2*relative.x/paddle.dim.x - 1),
                                     Ball.deflection.y*(2*relative.y/paddle.dim.y - 1))
-                self.vel.x += vel_offset.x
-                self.vel.y += vel_offset.y
+                self.curve = Vel2D(max(Ball.curve.x, paddle.vel.x
+
+                self.vel.x += vel_defl.x
+                self.vel.y += vel_defl.y
                 self.vel.z = -self.vel.z
                 return self.PaddleCollision.hit
             else:
