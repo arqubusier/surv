@@ -4,6 +4,7 @@ import sdl2.ext
 import sdl2
 import ctypes
 import random
+from copy import copy
 from enum import Enum
 
 root_dir = os.path.dirname(os.path.abspath(__file__))
@@ -120,6 +121,7 @@ class Paddle(object):
         self.rect = Rectangle(x, y, z, Paddle.dim.x, Paddle.dim.y, color)
 
     def handle_collision(self, room):
+        """Keeps paddle within bounds of the room."""
         if self.pos.x > room.dim.x - self.dim.x:
             self.pos.x = room.dim.x - self.dim.x
         if self.pos.y > room.dim.y - self.dim.y:
@@ -136,36 +138,54 @@ class Paddle(object):
 class Ball(object):
     dim = Dim3D(15, 15, 15)
     start_speed = 20
+    PaddleCollision = Enum("PaddleCollision", "hit miss no_collision")
 
     def __init__(self, x, y, z, vel_x, vel_y, vel_z, room):
         self.pos = Pos3D(x, y, z)
+        self.old_pos = Pos3D(x, y, z)
         self.speed = Ball.start_speed
         self.vel = Vel3D(vel_x, vel_y, vel_z)
         self.rect = Rectangle(0, 0, 0, room.dim.x, room.dim.y, CYAN)
         self.disc = Rectangle(self.pos.x, self.pos.y, self.pos.z,
                 Ball.dim.x, Ball.dim.y, MAGENTA)
+    
+    def handle_collision_paddle(self, paddle):
+        print("max", max(self.pos.z, self.old_pos.z), "min", min(self.pos.z, self.old_pos.z)) 
 
-    def handle_collision(self, paddle_1, paddle_2, room):
+        if (paddle.pos.z <= max(self.pos.z, self.old_pos.z)
+                and paddle.pos.z >= min(self.pos.z, self.old_pos.z)):
+
+            relative = Pos2D(self.pos.x + Ball.dim.x/2 - paddle.pos.x,
+                             self.pos.y + Ball.dim.y/2 - paddle.pos.y) 
+
+            if (relative.x >= 0 and relative.x < paddle.dim.x
+                    and relative.y >= 0 and relative.y < paddle.dim.y):
+                return self.PaddleCollision.hit
+            else:
+                return self.PaddleCollision.miss
+
+        return self.PaddleCollision.no_collision
+
+    def handle_collision(self, player, computer, room):
         #can be improved by checking intersection between line and plane
+        player_status = self.handle_collision_paddle(player)
+        computer_status = self.handle_collision_paddle(computer)
+
+        if player_status == self.PaddleCollision.hit:
+            self.vel.z = -self.vel.z
+            self.place(self.pos.x, self.pos.y, self.pos.z + self.vel.z)
+            return CollisionStatus.player_hit
+        elif player_status == self.PaddleCollision.miss:
+            return CollisionStatus.player_miss
+
+        if computer_status == self.PaddleCollision.hit:
+            self.vel.z = -self.speed
+            self.place(self.pos.x, self.pos.y, self.pos.z + self.vel.z)
+            return CollisionStatus.computer_hit
+        elif computer_status == self.PaddleCollision.miss:
+            return CollisionStatus.computer_miss
+
         status = CollisionStatus.no_collision
-        if self.pos.z <= 0:
-            if (self.pos.x > paddle_1.pos.x
-                    and self.pos.x + self.dim.x < paddle_1.pos.x + paddle_1.dim.x
-                    and self.pos.y > paddle_1.pos.y
-                    and self.pos.y + self.dim.y < paddle_1.pos.y + paddle_1.dim.y):
-                self.vel.z = self.speed
-                status = CollisionStatus.player_hit
-            else:
-                status = CollisionStatus.player_miss
-        elif self.pos.z >= room.dim.z:
-            if (self.pos.x > paddle_2.pos.x
-                    and self.pos.x + self.dim.x < paddle_2.pos.x + paddle_2.dim.x
-                    and self.pos.y > paddle_2.pos.y
-                    and self.pos.y + self.dim.y < paddle_2.pos.y + paddle_2.dim.y):
-                self.vel.z = -self.speed
-                status = CollisionStatus.computer_hit
-            else:
-                status = CollisionStatus.computer_miss
 
         if self.pos.x < 0 or self.pos.x + self.dim.x > room.dim.x:
             self.vel.x = -self.vel.x
@@ -184,10 +204,12 @@ class Ball(object):
 
     def place(self, x, y, z):
         self.pos = Pos3D(x, y, z)
+        self.old_pos = copy(self.pos)
         self.disc.place(self.pos.x, self.pos.y, self.pos.z)
         self.rect.place(0, 0, self.pos.z)
 
     def move(self):
+        self.old_pos =copy(self.pos)
         self.pos.x += self.vel.x
         self.pos.y += self.vel.y
         self.pos.z += self.vel.z
@@ -195,7 +217,7 @@ class Ball(object):
         self.rect.place(0, 0, self.pos.z)
 
 class Computer(object):
-    speed = 2 
+    speed = 9 
     def __init__(self, paddle, room):
         self.paddle = paddle
         self.vel = Vel2D(0, 0)
@@ -274,9 +296,12 @@ def main():
     random.seed()
 
     room = Room()
-    p1 = Paddle(Room.dim.x/2 - Paddle.dim.x/2, Room.dim.y/2 - Paddle.dim.y/2, 0, 0, 0, OCEAN)
-    p2 = Paddle(Room.dim.x/2 - Paddle.dim.x/2, Room.dim.y/2 - Paddle.dim.y/2, Room.dim.z, 0, 0, ORANGE)
-    ball = Ball(Room.dim.x/2 - Ball.dim.x/2, Room.dim.y/2 - Ball.dim.y/2, Room.dim.z/2, 1, 1, -7, room)
+    p1 = Paddle(Room.dim.x/2 - Paddle.dim.x/2,
+                Room.dim.y/2 - Paddle.dim.y/2, 0, 0, 0, OCEAN)
+    p2 = Paddle(Room.dim.x/2 - Paddle.dim.x/2,
+                Room.dim.y/2 - Paddle.dim.y/2, Room.dim.z, 0, 0, ORANGE)
+    ball = Ball(Room.dim.x/2 - Ball.dim.x/2,
+                Room.dim.y/2 - Ball.dim.y/2, Room.dim.z/2, 1, 1, -7, room)
     figures = [room, p1, p2, ball]
 
     computer = Computer(p2, room)
@@ -305,7 +330,7 @@ def main():
                     p1.place(event.motion.x, event.motion.y)
                     ball.place(p1.pos.x + p1.dim.x/2 - ball.dim.x/2,
                                p1.pos.y + p1.dim.y/2 - ball.dim.y/2,
-                               p1.pos.z)
+                               p1.pos.z + Ball.start_speed)
                 elif event.type == sdl2.SDL_MOUSEBUTTONDOWN:
                     ball.vel = Vel3D(0, 0, Ball.start_speed)
                     return
@@ -326,7 +351,7 @@ def main():
             computer.move_paddle()
             ball.place(p2.pos.x + p2.dim.x/2 - ball.dim.x/2,
                        p2.pos.y + p2.dim.y/2 - ball.dim.y/2,
-                       p2.pos.z)
+                       p2.pos.z + Ball.start_speed)
             refresh_screen()
             
     def in_game():
@@ -378,7 +403,6 @@ def main():
                     computer_points += 1
                     break
 
-    #import pdb; pdb.set_trace()
     in_game()
 
     return 0
