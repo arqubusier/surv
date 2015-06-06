@@ -137,6 +137,7 @@ class Paddle(object):
 
 class Ball(object):
     dim = Dim3D(15, 15, 15)
+    deflection = Vector2D(5, 5)
     start_speed = 20
     PaddleCollision = Enum("PaddleCollision", "hit miss no_collision")
 
@@ -160,6 +161,10 @@ class Ball(object):
 
             if (relative.x >= 0 and relative.x < paddle.dim.x
                     and relative.y >= 0 and relative.y < paddle.dim.y):
+                vel_offset = Vel2D(Ball.deflection.x*(2*relative.x/paddle.dim - 1),
+                                    Ball.deflection.y(2*relative.y/paddle.dim - 1))
+                self.vel.x += vel_offset.x
+                self.vel.y += vel_offset.y
                 return self.PaddleCollision.hit
             else:
                 return self.PaddleCollision.miss
@@ -172,7 +177,6 @@ class Ball(object):
         computer_status = self.handle_collision_paddle(computer)
 
         if player_status == self.PaddleCollision.hit:
-            self.vel.z = -self.vel.z
             self.place(self.pos.x, self.pos.y, self.pos.z + self.vel.z)
             return CollisionStatus.player_hit
         elif player_status == self.PaddleCollision.miss:
