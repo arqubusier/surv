@@ -141,46 +141,44 @@ class Character(Figure):
     """
     chars = {
             'A': "abcdghup",
-            'B': "",
-            'C': "",
-            'D': "",
-            'E': "",
-            'F': "",
-            'G': "",
-            'H': "",
-            'I': "",
-            'J': "",
-            'K': "",
-            'L': "",
-            'M': "",
-            'N': "",
-            'O': "",
-            'P': "",
-            'Q': "",
-            'R': "",
-            'S': "",
-            'T': "",
-            'U': "",
-            'V': "",
-            'W': "",
-            'X': "",
-            'Y': "",
-            'Z': "",
-            'Å': "",
-            'Ä': "",
-            'ä': "",
-            'Ö': "",
-            '0': "",
-            '1': "",
-            '2': "",
-            '3': "",
-            '4': "",
-            '5': "",
-            '6': "",
-            '7': "",
+            'B': "abcdefupms",
+            'C': "abhgfe",
+            'D': "abcdfems",
+            'E': "abfehgu",
+            'F': "abhgu",
+            'G': "abhgfedp",
+            'H': "hgupcd",
+            'I': "abfems",
+            'J': "cdfeg",
+            'K': "hgunr",
+            'L': "hgfe",
+            'M': "hgcdkn",
+            'N': "hgcdkr",
+            'O': "abcdfehg",
+            'P': "abupchg",
+            'Q': "abcdgehgr",
+            'R': "abcuphgr",
+            'S': "abhupdfe",
+            'T': "abms",
+            'U': "cdfehg",
+            'V': "hgnt",
+            'W': "hgcdtr",
+            'X': "kntr",
+            'Y': "hcups",
+            'Z': "abntfe",
+            'Å': "cdpnta",
+            'Ä': "cdntpab",
+            'Ö': "upgdfeab",
+            '0': "abcdhgfetn",
+            '1': "ncd",
+            '2': "abcupgfe",
+            '3': "abcdfep",
+            '4': "hcupd",
+            '5': "abhupdfe",
+            '6': "ahgupdfe",
+            '7': "abcd",
             '8': "abcdefghup",
-            '9': "",
-            '0': ""
+            '9': "abcdeuph",
             }
 
     def __init__(self, x, y, z, c, size, color):
@@ -204,7 +202,7 @@ class Character(Figure):
             'h' : (       0,       d,       0, (h-d)/2),
             'k' : (       d,       d,   w/2-d,   h/2-d),
             'm' : (     w/2,       d,     w/2, (h-d)/2),
-            'n' : (     w-d,       d,   w/2+d,   h/2+d),
+            'n' : (     w-d,       d,   w/2+d,   h/2-d),
             'u' : (       d,     h/2,     w/2,     h/2),
             'p' : (     w/2,     h/2,     w-d,     h/2),
             'r' : (   w/2+d,   h/2+d,     w-d,     h-d),
@@ -220,7 +218,6 @@ class Character(Figure):
         x, y = super().scale_pos()
         self.segments = self.resize_segments(dim_x, dim_y, dim_x/5)
 
-        print(self.c, Character.chars[self.c])
         for seg in Character.chars[self.c]:
             line = self.segments[seg]
             line_offset = (round(line[0] + x), round(line[1] + y),
@@ -422,6 +419,17 @@ class Room(object):
         for rect in self.rects:
             rect.draw(renderer)
 
+def text_test():
+    figures = []
+    figures += [Character(15*i, 0, 0, c, 10, WHITE) for i, c in enumerate("ABCDEFG")]
+    figures += [Character(15*i, 30, 300, c, 10, WHITE) for i, c in enumerate("HJKLMN")]
+    figures += [Character(15*i, 60, 1000, c, 10, WHITE) for i, c in enumerate("OPQRST")]
+    figures += [Character(15*i, 90, 0, c, 10, WHITE) for i, c in enumerate("UVWXYZÅÄÖ")]
+    figures += [Character(15*i, 120, 0, c, 10, WHITE) for i, c in enumerate("012345")]
+    figures += [Character(50*i, 150, 0, c, 45, WHITE) for i, c in enumerate("6789")]
+
+    return figures
+
 def main():
     sdl2.ext.init()
     window = sdl2.ext.Window("SURV!", size=(800, 600))
@@ -440,9 +448,9 @@ def main():
                 Room.dim.y/2 - Paddle.dim.y/2, Room.dim.z, 0, 0, ORANGE)
     ball = Ball(Room.dim.x/2 - Ball.dim.x/2,
                 Room.dim.y/2 - Ball.dim.y/2, Room.dim.z/2, 1, 1, -7, room)
-    score_1 = Character(10, 10, 0, '8', 10, WHITE)
 
-    figures = [room, p1, p2, ball, score_1]
+    figures = [room, p1, p2, ball]
+    figures += text_test()
 
     computer = Computer(p2, room)
 
