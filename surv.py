@@ -124,6 +124,46 @@ class Rectangle(Figure):
         renderer.draw_rect((round(x), round(y), round(dim_x), round(dim_y)),
                 self.color)
 
+class Letter(Figure):
+    """
+    A letter made up of straight lines with a 7 segment font.
+
+         -a- -b-   
+        | \ | / |
+        h  kmn  c
+        |  \|/  |
+         -u- -p-
+        |  /|\  |
+        g  tsr  d
+        | / | \ |
+         -f- -e-
+    """
+
+    def __init__(self, c, size):
+        if c not in ["ABCDDEFGHIJKLMNOPQRSTUVWXYZÅÄÖ0123456789"]:
+            c = '0'
+        w = size 
+        h = size*2 
+        d = size/5
+        #x1, y1, x2, y2
+        A = (       d,       0, (w-d)/2,       0)
+        B = ( (w+d)/2,       0,     w-d,       0)
+        C = (       w,       d,       w, (h-d)/2)
+        D = (       w, (h+d)/2,       w,     h-d)
+        E = ( (w-d)/2,       h,     w-d,       h)
+        F = (       d,       h, (w-d)/2,       h)
+        G = (       0, (h+d)/2,       0,     h-d)
+        H = (       0,       d,       0, (h-d)/2)
+        K = (       d,       d,   w/2-d,   h/2-d)
+        M = (     w/2,       d,     w/2, (h-d)/2)
+        N = (     w-d,       d,   w/2+d,   h/2+d)
+        U = (       d,     h/2,     w/2,     h/2)
+        P = (     w/2,     h/2,     w-d,     h/2)
+        R = (   w/2+d,   h/2+d,     w-d,     h-d)
+        S = (     w/2,   h/2+d,     w/2,     h-d)
+        T = (   w/2-d,   h/2+d,       d,     h-d)
+
+
 class Paddle(object):
     dim = Dim2D(120, 90)
 
