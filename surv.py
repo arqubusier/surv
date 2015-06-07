@@ -102,6 +102,7 @@ class Figure(object):
         self.pos.x, self.pos.y, self.pos.z = x, y, z
         self.redraw = True
 
+    #REMOVE THIS!!
     def should_redraw(self):
         old_val = self.redraw
         redraw = False
@@ -124,9 +125,9 @@ class Rectangle(Figure):
         renderer.draw_rect((round(x), round(y), round(dim_x), round(dim_y)),
                 self.color)
 
-class Letter(Figure):
+class Character(Figure):
     """
-    A letter made up of straight lines with a 7 segment font.
+    A character made up of straight lines with a 7 segment font.
 
          -a- -b-   
         | \ | / |
@@ -138,30 +139,94 @@ class Letter(Figure):
         | / | \ |
          -f- -e-
     """
+    chars = {
+            'A': "abcdghup",
+            'B': "",
+            'C': "",
+            'D': "",
+            'E': "",
+            'F': "",
+            'G': "",
+            'H': "",
+            'I': "",
+            'J': "",
+            'K': "",
+            'L': "",
+            'M': "",
+            'N': "",
+            'O': "",
+            'P': "",
+            'Q': "",
+            'R': "",
+            'S': "",
+            'T': "",
+            'U': "",
+            'V': "",
+            'W': "",
+            'X': "",
+            'Y': "",
+            'Z': "",
+            'Å': "",
+            'Ä': "",
+            'ä': "",
+            'Ö': "",
+            '0': "",
+            '1': "",
+            '2': "",
+            '3': "",
+            '4': "",
+            '5': "",
+            '6': "",
+            '7': "",
+            '8': "abcdefghup",
+            '9': "",
+            '0': ""
+            }
 
-    def __init__(self, c, size):
-        if c not in ["ABCDDEFGHIJKLMNOPQRSTUVWXYZÅÄÖ0123456789"]:
-            c = '0'
+    def __init__(self, x, y, z, c, size, color):
         w = size 
         h = size*2 
         d = size/5
+        super().__init__(x, y, z, w, h, color)
+        self.c = c
+        self.segments = self.resize_segments(w, h, d)
+        
+    def resize_segments(self, w, h, d):
         #x1, y1, x2, y2
-        A = (       d,       0, (w-d)/2,       0)
-        B = ( (w+d)/2,       0,     w-d,       0)
-        C = (       w,       d,       w, (h-d)/2)
-        D = (       w, (h+d)/2,       w,     h-d)
-        E = ( (w-d)/2,       h,     w-d,       h)
-        F = (       d,       h, (w-d)/2,       h)
-        G = (       0, (h+d)/2,       0,     h-d)
-        H = (       0,       d,       0, (h-d)/2)
-        K = (       d,       d,   w/2-d,   h/2-d)
-        M = (     w/2,       d,     w/2, (h-d)/2)
-        N = (     w-d,       d,   w/2+d,   h/2+d)
-        U = (       d,     h/2,     w/2,     h/2)
-        P = (     w/2,     h/2,     w-d,     h/2)
-        R = (   w/2+d,   h/2+d,     w-d,     h-d)
-        S = (     w/2,   h/2+d,     w/2,     h-d)
-        T = (   w/2-d,   h/2+d,       d,     h-d)
+        return {
+            'a' : (       d,       0, (w-d)/2,       0),
+            'b' : ( (w+d)/2,       0,     w-d,       0),
+            'c' : (       w,       d,       w, (h-d)/2),
+            'd' : (       w, (h+d)/2,       w,     h-d),
+            'e' : ( (w+d)/2,       h,     w-d,       h),
+            'f' : (       d,       h, (w-d)/2,       h),
+            'g' : (       0, (h+d)/2,       0,     h-d),
+            'h' : (       0,       d,       0, (h-d)/2),
+            'k' : (       d,       d,   w/2-d,   h/2-d),
+            'm' : (     w/2,       d,     w/2, (h-d)/2),
+            'n' : (     w-d,       d,   w/2+d,   h/2+d),
+            'u' : (       d,     h/2,     w/2,     h/2),
+            'p' : (     w/2,     h/2,     w-d,     h/2),
+            'r' : (   w/2+d,   h/2+d,     w-d,     h-d),
+            's' : (     w/2,   h/2+d,     w/2,     h-d),
+            't' : (   w/2-d,   h/2+d,       d,     h-d)
+            }
+
+    
+    def draw(self, renderer):
+        if self.c not in "ABCDDEFGHIJKLMNOPQRSTUVWXYZÅÄÖ01234567890":
+            self.c = '0'
+        dim_x, dim_y = super().scale_dim()
+        x, y = super().scale_pos()
+        self.segments = self.resize_segments(dim_x, dim_y, dim_x/5)
+
+        print(self.c, Character.chars[self.c])
+        for seg in Character.chars[self.c]:
+            line = self.segments[seg]
+            line_offset = (round(line[0] + x), round(line[1] + y),
+                           round(line[2] + x), round(line[3] + y))
+            renderer.draw_line(line_offset, self.color)
+
 
 
 class Paddle(object):
@@ -375,7 +440,9 @@ def main():
                 Room.dim.y/2 - Paddle.dim.y/2, Room.dim.z, 0, 0, ORANGE)
     ball = Ball(Room.dim.x/2 - Ball.dim.x/2,
                 Room.dim.y/2 - Ball.dim.y/2, Room.dim.z/2, 1, 1, -7, room)
-    figures = [room, p1, p2, ball]
+    score_1 = Character(10, 10, 0, '8', 10, WHITE)
+
+    figures = [room, p1, p2, ball, score_1]
 
     computer = Computer(p2, room)
 
